@@ -168,12 +168,28 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.2rem;
+    gap: 1.5rem;
   }
 
-  .quiz-setup h2 {
+  .quiz-setup > h2 {
     font-size: 1.2rem;
     font-weight: 600;
+  }
+
+  .setting-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .setting-group-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: center;
   }
 
   .setting-row {
@@ -199,6 +215,28 @@
     font-weight: 700;
     font-size: 1rem;
   }
+
+  .toggle-group {
+    display: flex;
+    gap: 0;
+  }
+
+  .toggle-btn {
+    padding: 0.35rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid #2c2c2c;
+    background: #fff;
+    color: #2c2c2c;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .toggle-btn:first-child { border-radius: 6px 0 0 6px; }
+  .toggle-btn:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+  .toggle-btn:not(:first-child):not(:last-child) { border-left: none; }
+  .toggle-btn.active { background: #2c2c2c; color: #fff; }
+  .toggle-btn:not(.active):hover { background: #e8ddd3; }
 
   .start-btn {
     margin-top: 0.5rem;
@@ -400,16 +438,37 @@
 
     <div class="quiz-setup" id="quiz-setup">
       <h2>クイズ設定 (Quiz Settings)</h2>
-      <div class="setting-row">
-        <label>問題数 (Questions)</label>
-        <input type="range" id="q-count" min="5" max="142" value="20" oninput="document.getElementById('q-count-val').textContent=this.value">
-        <span class="val" id="q-count-val">20</span>
+
+      <div class="setting-group">
+        <div class="setting-group-title">文字の種類 (Character Type)</div>
+        <div class="toggle-group" id="kana-type-toggle">
+          <div class="toggle-btn active" onclick="setKanaType('all')">全部 (All)</div>
+          <div class="toggle-btn" onclick="setKanaType('hiragana')">ひらがな</div>
+          <div class="toggle-btn" onclick="setKanaType('katakana')">カタカナ</div>
+        </div>
       </div>
-      <div class="setting-row">
-        <label>制限時間 (Time Limit)</label>
-        <input type="range" id="q-time" min="5" max="60" value="20" oninput="document.getElementById('q-time-val').textContent=this.value+'s'">
-        <span class="val" id="q-time-val">20s</span>
+
+      <div class="setting-group">
+        <div class="setting-group-title">順番と問題数 (Order & Count)</div>
+        <div class="toggle-group" id="order-toggle">
+          <div class="toggle-btn active" onclick="setOrder('random')">ランダム (Random)</div>
+          <div class="toggle-btn" onclick="setOrder('table')">表の順番 (Table Order)</div>
+        </div>
+        <div class="setting-row">
+          <label>問題数 (Questions)</label>
+          <input type="range" id="q-count" min="5" max="142" value="20" oninput="document.getElementById('q-count-val').textContent=this.value">
+          <span class="val" id="q-count-val">20</span>
+        </div>
       </div>
+
+      <div class="setting-group">
+        <div class="setting-group-title">制限時間 (Time Limit)</div>
+        <div class="setting-row">
+          <input type="range" id="q-time" min="5" max="60" value="20" oninput="document.getElementById('q-time-val').textContent=this.value+'s'">
+          <span class="val" id="q-time-val">20s</span>
+        </div>
+      </div>
+
       <button class="start-btn" onclick="startQuiz()">スタート</button>
     </div>
 
@@ -626,10 +685,40 @@
   let quizTimer = null;
   let quizTimeLeft = 0;
   let quizLocked = false;
+  let quizKanaType = 'all';
+  let quizOrder = 'random';
 
-  function getAllKana() {
+  function setKanaType(type) {
+    quizKanaType = type;
+    document.querySelectorAll('#kana-type-toggle .toggle-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (type === 'all' && i === 0) || (type === 'hiragana' && i === 1) || (type === 'katakana' && i === 2));
+    });
+    updateMaxCount();
+  }
+
+  function setOrder(order) {
+    quizOrder = order;
+    document.querySelectorAll('#order-toggle .toggle-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (order === 'random' && i === 0) || (order === 'table' && i === 1));
+    });
+  }
+
+  function updateMaxCount() {
+    const max = getKanaPool().length;
+    const slider = document.getElementById('q-count');
+    slider.max = max;
+    if (parseInt(slider.value) > max) {
+      slider.value = max;
+      document.getElementById('q-count-val').textContent = max;
+    }
+  }
+
+  function getKanaPool() {
+    const sources = [];
+    if (quizKanaType === 'all' || quizKanaType === 'hiragana') sources.push(hiraganaRows);
+    if (quizKanaType === 'all' || quizKanaType === 'katakana') sources.push(katakanaRows);
     const all = [];
-    for (const rows of [hiraganaRows, katakanaRows]) {
+    for (const rows of sources) {
       for (const row of rows) {
         if (row === 'sep') continue;
         for (const c of row) { if (c) all.push(c); }
@@ -652,8 +741,8 @@
   function startQuiz() {
     const count = parseInt(document.getElementById('q-count').value);
     quizTimeLimit = parseInt(document.getElementById('q-time').value);
-    const allKana = getAllKana();
-    quizQuestions = fisherYates(allKana).slice(0, count);
+    const allKana = getKanaPool();
+    quizQuestions = quizOrder === 'random' ? fisherYates(allKana).slice(0, count) : allKana.slice(0, count);
     quizResults = [];
     quizIndex = 0;
 
