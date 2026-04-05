@@ -348,8 +348,14 @@
   }
 
   @media (max-width: 600px) {
+    body { padding: 1rem 1rem 1.5rem; overflow: auto; height: auto; min-height: 100vh; }
     .tables-container { flex-direction: column; gap: 0.5rem; }
-    .cell { font-size: clamp(0.7rem, 3vw, 1.2rem); }
+    .grid { flex: none; }
+    .cell {
+      font-size: clamp(0.7rem, 3vw, 1.2rem);
+      padding: 8px 2px;
+    }
+    .cell .romaji { font-size: clamp(0.4rem, 2vw, 0.6rem); }
     .quiz-kana { font-size: clamp(3rem, 15vw, 6rem); }
   }
 </style>
